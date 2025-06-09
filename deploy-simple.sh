@@ -4,7 +4,7 @@ set -e
 # 변수 설정
 ECR_REPO="703094587997.dkr.ecr.us-west-2.amazonaws.com"
 IMAGE_NAME="eks-assistant"
-TAG="latest"
+TAG="simple-v1"
 NAMESPACE="streamlit"
 DEPLOYMENT_NAME="eks-assistant-app"
 REGION="us-west-2"
@@ -12,7 +12,7 @@ REGION="us-west-2"
 echo "===== 1. Docker 이미지 빌드 및 푸시 ====="
 # Docker 이미지 빌드
 echo "Docker 이미지 빌드 중..."
-docker build -t ${IMAGE_NAME}:${TAG} .
+docker build -t ${IMAGE_NAME}:${TAG} -f Dockerfile .
 
 # ECR 로그인
 echo "ECR 로그인 중..."
