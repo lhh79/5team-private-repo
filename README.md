@@ -1,35 +1,24 @@
-# EKS Assistant
+# EKS 클러스터 운영 어시스턴트
 
-AWS EKS 클러스터 관리를 위한 웹 기반 도우미 애플리케이션입니다.
+AWS EKS 클러스터 관리 및 모니터링을 위한 웹 기반 도우미 애플리케이션입니다.
 
 ## 기능
 
 - EKS 클러스터 정보 조회 및 관리
-- 컴퓨트 노드 및 Pod 상태 모니터링
-- Bedrock 모델 목록 조회 및 AI 어시스턴트 기능
-- 세션 관리 및 DynamoDB 연동
-- AWS 자격 증명 테스트
+- 노드그룹 정보 확인
+- Pod 상태 모니터링 및 필터링
+- kubectl 명령어 가이드 제공
 
 ## 파일 구조
 
 ```
 streamlit/
-├── main.py                          # Streamlit 애플리케이션 메인 코드
+├── simple_app.py                    # Streamlit 애플리케이션 메인 코드
 ├── Dockerfile                       # Docker 이미지 빌드 설정
 ├── requirements.txt                 # Python 패키지 의존성
-├── deploy-eks-assistant.sh          # 전체 배포 스크립트 (Docker + Kubernetes)
-├── deploy-eks-assistant-kubectl-only.sh  # Kubernetes 배포만 수행하는 스크립트
+├── deploy-simple.sh                 # 배포 스크립트 (Docker + Kubernetes)
 ├── k8s-manifests.yaml               # Kubernetes 리소스 정의 파일
-├── config.py                        # AWS 클라이언트 초기화 설정
-├── eks_utils.py                     # EKS 관련 유틸리티 함수
-├── compute_nodes_utils.py           # 컴퓨트 노드 정보 조회 유틸리티
-├── bedrock_utils.py                 # Bedrock 모델 관련 유틸리티
-├── kubernetes_utils.py              # Kubernetes 관련 유틸리티
-├── permission_utils.py              # IAM 권한 관련 유틸리티
-├── session_utils.py                 # 세션 관리 유틸리티
-├── ui_components.py                 # UI 컴포넌트 렌더링 함수
-├── create-dynamodb-table.py         # DynamoDB 테이블 생성 스크립트
-├── iam-policy.json                  # IAM 정책 정의 파일
+├── k8s-rbac.yaml                    # Kubernetes RBAC 권한 설정
 └── README.md                        # 프로젝트 설명 및 사용 방법
 ```
 
@@ -41,7 +30,7 @@ Docker가 설치된 환경에서 다음 스크립트를 실행합니다:
 
 ```bash
 cd streamlit
-./deploy-eks-assistant.sh
+./deploy-simple.sh
 ```
 
 이 스크립트는 다음 작업을 수행합니다:
@@ -51,31 +40,19 @@ cd streamlit
 4. Kubernetes 배포 업데이트
 5. 배포 상태 확인
 
-### Kubernetes 배포만 수행
-
-이미지가 이미 ECR에 있는 경우 다음 스크립트를 실행합니다:
-
-```bash
-cd streamlit
-./deploy-eks-assistant-kubectl-only.sh
-```
-
-이 스크립트는 다음 작업을 수행합니다:
-1. Kubernetes 배포 업데이트
-2. 배포 상태 확인
-
 ### 처음부터 배포하기
 
 처음 배포하는 경우 Kubernetes 리소스를 생성해야 합니다:
 
 ```bash
 kubectl apply -f k8s-manifests.yaml
+kubectl apply -f k8s-rbac.yaml
 ```
 
 그런 다음 배포 스크립트를 실행합니다:
 
 ```bash
-./deploy-eks-assistant.sh
+./deploy-simple.sh
 ```
 
 ## 접속 방법
@@ -96,23 +73,8 @@ kubectl get ingress eks-assistant-ingress -n streamlit -o jsonpath='{.status.loa
    - eks:ListNodegroups
    - eks:DescribeNodegroup
 
-2. Bedrock 권한:
-   - bedrock:ListFoundationModels
-   - bedrock:GetFoundationModel
-   - bedrock:InvokeModel
-   - bedrock:InvokeModelWithResponseStream
-
-3. S3 권한:
-   - s3:ListBuckets
-   - s3:GetObject
-   - s3:PutObject
-
-4. DynamoDB 권한:
-   - dynamodb:CreateTable
-   - dynamodb:PutItem
-   - dynamodb:GetItem
-   - dynamodb:DeleteItem
-   - dynamodb:UpdateItem
+2. Kubernetes API 접근 권한:
+   - Pod, Node, Namespace 리소스에 대한 읽기 권한
 
 ## 문제 해결
 
@@ -122,28 +84,44 @@ kubectl get ingress eks-assistant-ingress -n streamlit -o jsonpath='{.status.loa
 kubectl logs -n streamlit $(kubectl get pods -n streamlit -l app=eks-assistant -o jsonpath='{.items[0].metadata.name}')
 ```
 
+Pod를 재시작하려면 다음 명령어를 사용하세요:
+
+```bash
+kubectl rollout restart deployment eks-assistant-app -n streamlit
+```
+
 ## 주요 기능
 
-1. **EKS 클러스터 모니터링**
+1. **홈 화면**
+   - 애플리케이션 소개 및 주요 기능 설명
+   - 사용 방법 안내
+
+2. **EKS 클러스터 Pod 모니터링**
    - 클러스터 상태, 버전, 리전 정보 표시
-   - 노드그룹 및 컴퓨트 노드 정보 조회
+   - 노드그룹 정보 조회
+   - Pod 상태 및 정보 모니터링
+   - 네임스페이스별 Pod 필터링
+   - 네임스페이스별 Pod 수 및 상태별 Pod 수 요약
 
-2. **컴퓨트 노드 관리**
-   - 노드 상태 및 리소스 사용량 모니터링
-   - 인스턴스 타입 및 버전 정보 확인
+3. **kubectl 명령어 가이드**
+   - Pod 관리 명령어
+   - Deployment 관리 명령어
+   - Service 관리 명령어
+   - 클러스터 정보 명령어
+   - ConfigMap & Secret 명령어
+   - 리소스 관리 명령어
 
-3. **Pod 모니터링**
-   - Pod 상태 및 리소스 요청량 확인
-   - 네임스페이스별 Pod 분포 확인
+## 사용 방법
 
-4. **AI 어시스턴트**
-   - Bedrock 모델을 활용한 EKS 관련 질문 응답
-   - 클러스터 컨텍스트 기반 맞춤형 답변 제공
+1. 애플리케이션에 접속합니다.
+2. 왼쪽 사이드바에서 "EKS 클러스터 Pod 모니터링" 메뉴를 클릭합니다.
+3. 드롭다운 메뉴에서 조회할 클러스터를 선택합니다.
+4. 클러스터 정보, 노드그룹 정보, Pod 정보가 자동으로 표시됩니다.
+5. 네임스페이스 필터를 사용하여 특정 네임스페이스의 Pod만 볼 수 있습니다.
+6. 왼쪽 사이드바의 kubectl 명령어 가이드를 참조하여 필요한 명령어를 확인할 수 있습니다.
 
-5. **세션 관리**
-   - DynamoDB를 활용한 세션 저장 및 복원
-   - 사용자 설정 및 클러스터 정보 유지
+## 참고 사항
 
-6. **kubectl 가이드**
-   - 일반적인 kubectl 명령어 가이드 제공
-   - 문제 해결을 위한 명령어 추천
+- 노드가 없는 클러스터에서는 Pod 정보가 표시되지 않습니다.
+- 인증 오류가 발생할 경우 시뮬레이션된 Pod 정보가 표시될 수 있습니다.
+- 애플리케이션은 AWS CLI와 Kubernetes Python 클라이언트를 사용하여 정보를 조회합니다.
