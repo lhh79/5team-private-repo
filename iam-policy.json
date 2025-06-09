@@ -1,0 +1,20 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:CreateTable",
+                "dynamodb:ListTables",
+                "dynamodb:UpdateTimeToLive"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:us-west-2:703094587997:table/StreamlitSessions",
+                "arn:aws:dynamodb:us-west-2:703094587997:table/StreamlitSessions/*"
+            ]
+        }
+    ]
+}

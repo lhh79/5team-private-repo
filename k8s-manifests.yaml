@@ -1,0 +1,139 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: streamlit
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eks-assistant-sa
+  namespace: streamlit
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::703094587997:role/EKSAssistantRole
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eks-assistant-cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: eks-assistant-sa
+  namespace: streamlit
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eks-assistant-app
+  namespace: streamlit
+  labels:
+    app: eks-assistant
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: eks-assistant
+  template:
+    metadata:
+      labels:
+        app: eks-assistant
+    spec:
+      serviceAccountName: eks-assistant-sa
+      containers:
+      - name: eks-assistant
+        image: 703094587997.dkr.ecr.us-west-2.amazonaws.com/eks-assistant:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: AWS_DEFAULT_REGION
+          value: "us-west-2"
+        - name: KUBERNETES_SERVICE_HOST
+          value: "kubernetes.default.svc"
+        - name: KUBERNETES_SERVICE_PORT
+          value: "443"
+        - name: DYNAMODB_TABLE
+          value: "StreamlitSessions"
+        - name: SESSION_TTL_DAYS
+          value: "7"
+        volumeMounts:
+        - name: service-account-token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: service-account-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - downwardAPI:
+              items:
+              - path: namespace
+                fieldRef:
+                  fieldPath: metadata.namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eks-assistant-service
+  namespace: streamlit
+  labels:
+    app: eks-assistant
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8501
+    protocol: TCP
+  selector:
+    app: eks-assistant
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eks-assistant-ingress
+  namespace: streamlit
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: eks-assistant-service
+            port:
+              number: 80
