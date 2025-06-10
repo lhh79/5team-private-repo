@@ -23,8 +23,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 코드 복사
 COPY . .
 
-# 포트 설정
-EXPOSE 8501
-
 # 애플리케이션 실행
-CMD ["streamlit", "run", "simple_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "integrated_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
